@@ -11,6 +11,7 @@ import (
 
 	appsettemplate "github.com/argoproj/argo-cd/v3/applicationset/controllers/template"
 	"github.com/argoproj/argo-cd/v3/applicationset/generators"
+	"github.com/argoproj/argo-cd/v3/applicationset/services"
 	appsetutils "github.com/argoproj/argo-cd/v3/applicationset/utils"
 	argocmd "github.com/argoproj/argo-cd/v3/cmd/argocd/commands"
 	cmdutil "github.com/argoproj/argo-cd/v3/cmd/util"
@@ -34,6 +35,13 @@ const (
 )
 
 var logger *log.Logger
+var localRepoMappings map[string]string
+
+// SetLocalRepoMappings configures the URL-to-local-path mappings for the Git generator.
+// The map keys are repository URLs and values are local filesystem paths.
+func SetLocalRepoMappings(mappings map[string]string) {
+	localRepoMappings = mappings
+}
 
 func init() {
 	cobra.OnInitialize(initConfig)
@@ -180,18 +188,34 @@ func generateApplications(filename string) []argoappv1.Application {
 }
 
 func getAppSetGenerators() map[string]generators.Generator {
+	var localRepos services.Repos
+	if len(localRepoMappings) > 0 {
+		localRepos = NewLocalRepos(localRepoMappings)
+	}
+
 	terminalGenerators := map[string]generators.Generator{
 		"List": generators.NewListGenerator(),
 	}
+	if localRepos != nil {
+		terminalGenerators["Git"] = NewOfflineGitGenerator(localRepos)
+	}
+
 	nestedGenerators := map[string]generators.Generator{
 		"List":   terminalGenerators["List"],
 		"Matrix": generators.NewMatrixGenerator(terminalGenerators),
 		"Merge":  generators.NewMergeGenerator(terminalGenerators),
 	}
+	if localRepos != nil {
+		nestedGenerators["Git"] = terminalGenerators["Git"]
+	}
+
 	topLevelGenerators := map[string]generators.Generator{
 		"List":   terminalGenerators["List"],
 		"Matrix": generators.NewMatrixGenerator(nestedGenerators),
 		"Merge":  generators.NewMergeGenerator(nestedGenerators),
+	}
+	if localRepos != nil {
+		topLevelGenerators["Git"] = terminalGenerators["Git"]
 	}
 
 	return topLevelGenerators

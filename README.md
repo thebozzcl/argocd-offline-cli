@@ -8,7 +8,13 @@ A small [Argo CD](https://argo-cd.readthedocs.io/en/stable/) CLI utility, built 
 
 ## Limitations
 
-Only a few [generators](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators/) and Helm source repositories are supported.
+Only a few [generators](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators/) are supported:
+- **List** generator
+- **Matrix** generator
+- **Merge** generator
+- **Git** generator (with local repositories only, see below)
+
+Only Helm source repositories are supported for manifest generation.
 
 ## Usage
 
@@ -33,6 +39,25 @@ argocd-offline-cli appset preview-apps /path/to/application-set-manifest -n app-
 ```shell
 argocd-offline-cli appset preview-apps /path/to/application-set-manifest -n app-name -o yaml
 ```
+
+### Using the Git Generator with Local Repositories
+
+Since this tool is designed to work offline, the Git generator cannot fetch from remote repositories. Instead, you can map remote repository URLs to local directories using the `--local-repo` flag.
+
+```shell
+argocd-offline-cli appset preview-apps /path/to/application-set-manifest \
+  --local-repo "https://github.com/org/repo.git=/path/to/local/repo"
+```
+
+You can specify multiple mappings:
+
+```shell
+argocd-offline-cli appset preview-apps /path/to/application-set-manifest \
+  -l "https://github.com/org/repo1.git=/path/to/local/repo1" \
+  -l "https://github.com/org/repo2.git=/path/to/local/repo2"
+```
+
+The Git generator supports both directory and file-based generation from the local repositories.
 
 ### Preview Resource manifest(s) from an ApplicationSet
 
